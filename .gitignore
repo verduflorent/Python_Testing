@@ -1,7 +1,21 @@
-bin
-include
-lib
+# Environnements virtuels
+.venv/
+venv/
+bin/
+include/
+lib/
 .Python
-tests/
+
+# Fichiers Python temporaires
+__pycache__/
+*.py[cod]
+
+# Pytest et couverture
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Configuration locale
+.env
 .envrc
-__pycache__
+.vscode/
