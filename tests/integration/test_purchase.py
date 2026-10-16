@@ -218,3 +218,20 @@ def test_purchase_rejects_booking_when_competition_is_full(booking_data):
     assert int(club["points"]) == 10
     assert int(competition["numberOfPlaces"]) == 0
     assert club.get("bookings", {}) == {}
+
+
+@pytest.mark.parametrize("invalid_places", ["0", "-3", "abc", "1.5", "", None])
+def test_purchase_rejects_invalid_quantity(booking_data, invalid_places):
+    """Les quantités invalides sont refusées sans effet sur les données."""
+    club, competition = booking_data
+    data = {"club": club["name"], "competition": competition["name"]}
+    if invalid_places is not None:
+        data["places"] = invalid_places
+
+    response = server.app.test_client().post("/purchasePlaces", data=data)
+
+    assert response.status_code == 200
+    assert b"Please enter a valid positive number of places." in response.data
+    assert int(club["points"]) == 10
+    assert int(competition["numberOfPlaces"]) == 20
+    assert club.get("bookings", {}) == {}
