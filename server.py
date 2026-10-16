@@ -57,6 +57,18 @@ def purchasePlaces():
 
     placesRequired = int(request.form['places'])
 
+    # Les réservations sont suivies par club et par compétition.
+    alreadyBooked = club.get('bookings', {}).get(competition['name'], 0)
+
+    # Le plafond de 12 s'applique au cumul, pas à chaque demande isolée.
+    if alreadyBooked + placesRequired > 12:
+        flash("You cannot book more than 12 places.")
+        return render_template(
+            'welcome.html',
+            club=club,
+            competitions=competitions
+        )
+
     # Vérifie que le club possède suffisamment de points.
     if placesRequired > int(club['points']):
         flash("Not enough points to complete this booking.")
@@ -69,6 +81,7 @@ def purchasePlaces():
     # La réservation est autorisée : on met à jour les données.
     competition['numberOfPlaces'] = int(competition['numberOfPlaces']) - placesRequired
     club['points'] = int(club['points']) - placesRequired
+    club.setdefault('bookings', {})[competition['name']] = alreadyBooked + placesRequired
 
     flash('Great-booking complete!')
     return render_template('welcome.html', club=club, competitions=competitions)
