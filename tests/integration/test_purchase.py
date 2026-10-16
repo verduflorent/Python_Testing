@@ -107,3 +107,61 @@ def test_purchase_exactly_twelve_places(booking_data):
     assert int(club["points"]) == 8
     assert int(competition["numberOfPlaces"]) == 13
     assert b"Great-booking complete!" in response.data
+
+
+def test_purchase_cumulative_limit_rejects_second_booking(booking_data):
+    """8 places puis 6 autres dépassent le plafond de 12 pour le même club."""
+    club, competition = booking_data
+    club["points"] = "30"
+    competition["numberOfPlaces"] = "30"
+    client = server.app.test_client()
+    data = {"club": club["name"], "competition": competition["name"]}
+
+    first = client.post("/purchasePlaces", data={**data, "places": "8"})
+    second = client.post("/purchasePlaces", data={**data, "places": "6"})
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert b"You cannot book more than 12 places." in second.data
+    assert int(club["points"]) == 22
+    assert int(competition["numberOfPlaces"]) == 22
+    assert club["bookings"][competition["name"]] == 8
+
+
+def test_purchase_cumulative_limit_accepts_exactly_twelve(booking_data):
+    """8 places puis 4 atteignent exactement le plafond autorisé."""
+    club, competition = booking_data
+    club["points"] = "20"
+    competition["numberOfPlaces"] = "25"
+    client = server.app.test_client()
+    data = {"club": club["name"], "competition": competition["name"]}
+
+    client.post("/purchasePlaces", data={**data, "places": "8"})
+    response = client.post("/purchasePlaces", data={**data, "places": "4"})
+
+    assert response.status_code == 200
+    assert int(club["points"]) == 8
+    assert int(competition["numberOfPlaces"]) == 13
+    assert club["bookings"][competition["name"]] == 12
+
+
+def test_purchase_limit_is_per_competition(booking_data):
+    """Les places réservées dans une autre compétition ne comptent pas."""
+    club, competition = booking_data
+    club["points"] = "30"
+    competition["numberOfPlaces"] = "25"
+    other = {"name": "Second Competition", "numberOfPlaces": "25"}
+    server.competitions.append(other)
+    client = server.app.test_client()
+
+    for comp in (competition, other):
+        response = client.post(
+            "/purchasePlaces",
+            data={"club": club["name"], "competition": comp["name"], "places": "8"}
+        )
+        assert response.status_code == 200
+
+    assert club["bookings"] == {"Test Competition": 8, "Second Competition": 8}
+    assert int(club["points"]) == 14
+    assert int(competition["numberOfPlaces"]) == 17
+    assert int(other["numberOfPlaces"]) == 17
