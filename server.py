@@ -55,7 +55,17 @@ def purchasePlaces():
     competition = [c for c in competitions if c['name'] == request.form['competition']][0]
     club = [c for c in clubs if c['name'] == request.form['club']][0]
 
-    placesRequired = int(request.form['places'])
+    # Vérifie le champ avant de convertir et de modifier les données.
+    raw_places = request.form.get('places', '')
+    try:
+        placesRequired = int(raw_places)
+    except (TypeError, ValueError):
+        flash("Please enter a valid positive number of places.")
+        return render_template('welcome.html', club=club, competitions=competitions)
+
+    if placesRequired <= 0:
+        flash("Please enter a valid positive number of places.")
+        return render_template('welcome.html', club=club, competitions=competitions)
 
     # Les réservations sont suivies par club et par compétition.
     alreadyBooked = club.get('bookings', {}).get(competition['name'], 0)
