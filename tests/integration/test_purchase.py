@@ -235,3 +235,49 @@ def test_purchase_rejects_invalid_quantity(booking_data, invalid_places):
     assert int(club["points"]) == 10
     assert int(competition["numberOfPlaces"]) == 20
     assert club.get("bookings", {}) == {}
+
+
+@pytest.mark.parametrize("missing_field", ["club", "competition"])
+def test_purchase_unknown_entity_is_rejected(booking_data, missing_field):
+    """Un club ou une compétition inconnue ne modifie aucune donnée."""
+    club, competition = booking_data
+    data = {"club": club["name"], "competition": competition["name"], "places": "2"}
+    data[missing_field] = "Unknown"
+
+    response = server.app.test_client().post("/purchasePlaces", data=data)
+
+    assert response.status_code == 400
+    assert int(club["points"]) == 10
+    assert int(competition["numberOfPlaces"]) == 20
+    assert club.get("bookings", {}) == {}
+
+
+@pytest.mark.parametrize("missing_field", ["club", "competition"])
+def test_purchase_missing_entity_field_is_rejected(booking_data, missing_field):
+    """Un formulaire incomplet est refusé sans mutation."""
+    club, competition = booking_data
+    data = {"club": club["name"], "competition": competition["name"], "places": "2"}
+    del data[missing_field]
+
+    response = server.app.test_client().post("/purchasePlaces", data=data)
+
+    assert response.status_code == 400
+    assert int(club["points"]) == 10
+    assert int(competition["numberOfPlaces"]) == 20
+    assert club.get("bookings", {}) == {}
+
+
+@pytest.mark.parametrize("invalid_segment", ["club", "competition"])
+def test_book_unknown_entity_returns_404(booking_data, invalid_segment):
+    """La page de réservation n'existe pas pour un club ou concours inconnu."""
+    club, competition = booking_data
+    club_name = "Unknown" if invalid_segment == "club" else club["name"]
+    competition_name = "Unknown" if invalid_segment == "competition" else competition["name"]
+
+    response = server.app.test_client().get(
+        f"/book/{competition_name}/{club_name}"
+    )
+
+    assert response.status_code == 404
+    assert int(club["points"]) == 10
+    assert int(competition["numberOfPlaces"]) == 20
