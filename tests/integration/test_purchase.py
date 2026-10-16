@@ -1,4 +1,4 @@
-from copy import deepcopy
+from datetime import datetime, timedelta
 
 import pytest
 
@@ -20,7 +20,8 @@ def booking_data(monkeypatch):
     competitions = [
         {
             "name": "Test Competition",
-            "numberOfPlaces": "20"
+            "numberOfPlaces": "20",
+            "date": (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d %H:%M:%S")
         }
     ]
 
@@ -150,7 +151,7 @@ def test_purchase_limit_is_per_competition(booking_data):
     club, competition = booking_data
     club["points"] = "30"
     competition["numberOfPlaces"] = "25"
-    other = {"name": "Second Competition", "numberOfPlaces": "25"}
+    other = {"name": "Second Competition", "numberOfPlaces": "25", "date": competition["date"]}
     server.competitions.append(other)
     client = server.app.test_client()
 
@@ -281,3 +282,47 @@ def test_book_unknown_entity_returns_404(booking_data, invalid_segment):
     assert response.status_code == 404
     assert int(club["points"]) == 10
     assert int(competition["numberOfPlaces"]) == 20
+
+
+def test_past_competition_still_visible_but_not_bookable(booking_data):
+    """Past competitions remain listed, without a booking link."""
+    club, competition = booking_data
+    competition["date"] = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
+    client = server.app.test_client()
+
+    summary = client.post("/showSummary", data={"email": club["email"]})
+    booking = client.get(f"/book/{competition['name']}/{club['name']}")
+    purchase = client.post(
+        "/purchasePlaces",
+        data={"club": club["name"], "competition": competition["name"], "places": "2"}
+    )
+
+    assert summary.status_code == 200
+    assert competition["name"].encode() in summary.data
+    assert b"Book Places" not in summary.data
+    assert booking.status_code == 403
+    assert purchase.status_code == 200
+    assert b"Booking is closed for past competitions." in purchase.data
+    assert int(club["points"]) == 10
+    assert int(competition["numberOfPlaces"]) == 20
+    assert club.get("bookings", {}) == {}
+
+
+def test_future_competition_is_bookable(booking_data):
+    """A future competition shows a booking link and accepts a valid booking."""
+    club, competition = booking_data
+    client = server.app.test_client()
+
+    summary = client.post("/showSummary", data={"email": club["email"]})
+    booking = client.get(f"/book/{competition['name']}/{club['name']}")
+    purchase = client.post(
+        "/purchasePlaces",
+        data={"club": club["name"], "competition": competition["name"], "places": "2"}
+    )
+
+    assert summary.status_code == 200
+    assert b"Book Places" in summary.data
+    assert booking.status_code == 200
+    assert purchase.status_code == 200
+    assert int(club["points"]) == 8
+    assert int(competition["numberOfPlaces"]) == 18
