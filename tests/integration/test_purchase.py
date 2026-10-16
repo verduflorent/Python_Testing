@@ -165,3 +165,56 @@ def test_purchase_limit_is_per_competition(booking_data):
     assert int(club["points"]) == 14
     assert int(competition["numberOfPlaces"]) == 17
     assert int(other["numberOfPlaces"]) == 17
+
+
+def test_purchase_rejects_more_than_available_places(booking_data):
+    """Une demande supérieure au stock est refusée sans aucune déduction."""
+    club, competition = booking_data
+    club["points"] = "20"
+    competition["numberOfPlaces"] = "5"
+
+    response = server.app.test_client().post(
+        "/purchasePlaces",
+        data={"club": club["name"], "competition": competition["name"], "places": "6"}
+    )
+
+    assert response.status_code == 200
+    assert b"Not enough places available" in response.data
+    assert int(club["points"]) == 20
+    assert int(competition["numberOfPlaces"]) == 5
+    assert club.get("bookings", {}) == {}
+
+
+def test_purchase_accepts_exact_available_places(booking_data):
+    """Réserver exactement les dernières places est autorisé."""
+    club, competition = booking_data
+    club["points"] = "20"
+    competition["numberOfPlaces"] = "5"
+
+    response = server.app.test_client().post(
+        "/purchasePlaces",
+        data={"club": club["name"], "competition": competition["name"], "places": "5"}
+    )
+
+    assert response.status_code == 200
+    assert b"Great-booking complete!" in response.data
+    assert int(club["points"]) == 15
+    assert int(competition["numberOfPlaces"]) == 0
+    assert club["bookings"][competition["name"]] == 5
+
+
+def test_purchase_rejects_booking_when_competition_is_full(booking_data):
+    """Une compétition sans places disponibles refuse toute réservation."""
+    club, competition = booking_data
+    competition["numberOfPlaces"] = "0"
+
+    response = server.app.test_client().post(
+        "/purchasePlaces",
+        data={"club": club["name"], "competition": competition["name"], "places": "1"}
+    )
+
+    assert response.status_code == 200
+    assert b"Not enough places available" in response.data
+    assert int(club["points"]) == 10
+    assert int(competition["numberOfPlaces"]) == 0
+    assert club.get("bookings", {}) == {}
