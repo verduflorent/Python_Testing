@@ -57,6 +57,16 @@ def purchasePlaces():
 
     placesRequired = int(request.form['places'])
 
+    # Vérifie que le club possède suffisamment de points.
+    if placesRequired > int(club['points']):
+        flash("Not enough points to complete this booking.")
+        return render_template(
+            'welcome.html',
+            club=club,
+            competitions=competitions
+        )
+
+    # La réservation est autorisée : on met à jour les données.
     competition['numberOfPlaces'] = int(competition['numberOfPlaces']) - placesRequired
     club['points'] = int(club['points']) - placesRequired
 

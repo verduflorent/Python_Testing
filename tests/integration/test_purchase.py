@@ -49,3 +49,27 @@ def test_purchase_deducts_club_points(booking_data):
     assert response.status_code == 200
     assert int(club["points"]) == 7
     assert int(competition["numberOfPlaces"]) == 17
+
+def test_purchase_with_insufficient_points(booking_data):
+    """Une réservation doit être refusée si le club manque de points."""
+
+    club, competition = booking_data
+
+    # Le club ne possède que 3 points.
+    club["points"] = "3"
+
+    client = server.app.test_client()
+
+    response = client.post(
+        "/purchasePlaces",
+        data={
+            "club": club["name"],
+            "competition": competition["name"],
+            "places": "5"
+        }
+    )
+
+    # La réservation ne doit modifier aucune donnée.
+    assert int(club["points"]) == 3
+    assert int(competition["numberOfPlaces"]) == 20
+    assert b"Not enough points" in response.data
