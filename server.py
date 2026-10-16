@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from flask import Flask,render_template,request,redirect,flash,url_for,abort
 
 
@@ -14,8 +15,18 @@ def loadCompetitions():
          return listOfCompetitions
 
 
+def competition_is_future(competition):
+    """Return True only for a competition with a valid future date."""
+    try:
+        competition_date = datetime.strptime(competition['date'], '%Y-%m-%d %H:%M:%S')
+    except (KeyError, TypeError, ValueError):
+        return False
+    return competition_date > datetime.now()
+
+
 app = Flask(__name__)
 app.secret_key = 'something_special'
+app.jinja_env.globals['competition_is_future'] = competition_is_future
 
 competitions = loadCompetitions()
 clubs = loadClubs()
@@ -45,6 +56,8 @@ def book(competition,club):
     foundCompetition = next((c for c in competitions if c['name'] == competition), None)
     if foundClub is None or foundCompetition is None:
         abort(404)
+    if not competition_is_future(foundCompetition):
+        abort(403, description='Booking is closed for past competitions.')
     return render_template('booking.html', club=foundClub, competition=foundCompetition)
 
 
@@ -56,6 +69,10 @@ def purchasePlaces():
     club = next((c for c in clubs if c['name'] == club_name), None)
     if club is None or competition is None:
         abort(400, description="Unknown club or competition.")
+
+    if not competition_is_future(competition):
+        flash("Booking is closed for past competitions.")
+        return render_template('welcome.html', club=club, competitions=competitions)
 
     # Vérifie le champ avant de convertir et de modifier les données.
     raw_places = request.form.get('places', '')
