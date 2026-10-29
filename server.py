@@ -58,7 +58,16 @@ def book(competition,club):
         abort(404)
     if not competition_is_future(foundCompetition):
         abort(403, description='Booking is closed for past competitions.')
-    return render_template('booking.html', club=foundClub, competition=foundCompetition)
+    already_booked = foundClub.get('bookings', {}).get(foundCompetition['name'], 0)
+    max_places = max(0, min(
+        int(foundClub['points']),
+        int(foundCompetition['numberOfPlaces']),
+        12 - already_booked
+    ))
+    return render_template(
+        'booking.html', club=foundClub, competition=foundCompetition,
+        max_places=max_places
+    )
 
 
 @app.route('/purchasePlaces', methods=['POST'])

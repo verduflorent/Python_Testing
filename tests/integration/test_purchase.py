@@ -326,3 +326,39 @@ def test_future_competition_is_bookable(booking_data):
     assert purchase.status_code == 200
     assert int(club["points"]) == 8
     assert int(competition["numberOfPlaces"]) == 18
+
+
+@pytest.mark.parametrize(
+    "points,available,already_booked,expected_max",
+    [
+        (8, 20, 6, 6),   # Remaining per-club allowance
+        (3, 20, 0, 3),   # Points limit
+        (20, 4, 0, 4),   # Competition capacity
+        (20, 20, 0, 12), # Absolute booking limit
+        (0, 20, 0, 0),   # No points
+        (20, 0, 0, 0),   # Competition full
+        (20, 20, 12, 0),# Club limit reached
+    ],
+)
+def test_booking_form_respects_available_allowance(
+    booking_data, points, available, already_booked, expected_max
+):
+    """The HTML form must reflect the most restrictive booking rule."""
+    club, competition = booking_data
+    club["points"] = str(points)
+    competition["numberOfPlaces"] = str(available)
+    club["bookings"] = {competition["name"]: already_booked}
+
+    response = server.app.test_client().get(
+        f"/book/{competition['name']}/{club['name']}"
+    )
+
+    assert response.status_code == 200
+    if expected_max:
+        assert f'max="{expected_max}"'.encode() in response.data
+        assert b'min="1"' in response.data
+        assert b'required' in response.data
+        assert b'<button type="submit">Book</button>' in response.data
+    else:
+        assert b"No places can be booked" in response.data
+        assert b'<button type="submit">Book</button>' not in response.data
