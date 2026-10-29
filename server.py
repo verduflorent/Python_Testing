@@ -24,6 +24,11 @@ def competition_is_future(competition):
     return competition_date > datetime.now()
 
 
+def calculate_max_bookable_places(points, available_places, already_booked):
+    """Return the remaining booking allowance, bounded by all business limits."""
+    return max(0, min(int(points), int(available_places), 12 - int(already_booked)))
+
+
 app = Flask(__name__)
 app.secret_key = 'something_special'
 app.jinja_env.globals['competition_is_future'] = competition_is_future
@@ -59,11 +64,9 @@ def book(competition,club):
     if not competition_is_future(foundCompetition):
         abort(403, description='Booking is closed for past competitions.')
     already_booked = foundClub.get('bookings', {}).get(foundCompetition['name'], 0)
-    max_places = max(0, min(
-        int(foundClub['points']),
-        int(foundCompetition['numberOfPlaces']),
-        12 - already_booked
-    ))
+    max_places = calculate_max_bookable_places(
+        foundClub['points'], foundCompetition['numberOfPlaces'], already_booked
+    )
     return render_template(
         'booking.html', club=foundClub, competition=foundCompetition,
         max_places=max_places
