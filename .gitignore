@@ -19,3 +19,6 @@ htmlcov/
 .env
 .envrc
 .vscode/
+
+# Rapports de charge générés localement
+reports/
