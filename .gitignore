@@ -1,5 +1,6 @@
 # Environnements virtuels
 .venv/
+.venv-locust/
 venv/
 bin/
 include/
