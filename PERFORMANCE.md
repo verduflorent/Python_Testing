@@ -4,26 +4,41 @@ The load test runs against an **isolated in-memory dataset**, not the project's
 `clubs.json` or `competitions.json`. The Flask development server is used
 for local, comparative measurements only; it is not a production benchmark.
 
-## Setup (Python 3.10 virtual environment)
+## Separate environments (Windows / Python 3.10)
+
+**Do not install Locust into the Flask application environment.** Locust
+requires newer Flask ecosystem dependencies and can replace the legacy
+versions used by GÜDLFT.
+
+From the repository root, create two independent virtual environments:
 
 ```powershell
-python -m pip install -r requirements-performance.txt
+py -3.10 -m venv .venv
+py -3.10 -m venv .venv-locust
+.\.venv\Scripts\python.exe -m pip install -r requirements-test.txt
+.\.venv-locust\Scripts\python.exe -m pip install -r requirements-performance.txt
 ```
+
+If `.venv` already exists and its 46 tests pass, keep it unchanged.
+The commands use explicit Python paths so terminal activation is unnecessary.
 
 ## Run in two PowerShell terminals
 
-Terminal 1 (from repository root):
+Terminal 1 — legacy Flask server, from repository root:
 
 ```powershell
-python performance_server.py
+.\.venv\Scripts\python.exe performance_server.py
 ```
 
-Terminal 2 (same virtual environment, from repository root):
+Terminal 2 — independent Locust runner, from repository root:
 
 ```powershell
 New-Item -ItemType Directory -Force reports | Out-Null
-python -m locust -f locustfile.py --headless -u 6 -r 1 -t 60s --host http://127.0.0.1:5001 --csv reports/locust
+.\.venv-locust\Scripts\python.exe -m locust -f locustfile.py --headless -u 6 -r 1 -t 60s --host http://127.0.0.1:5001 --csv reports/locust
 ```
+
+The application server uses Flask 1.1.2, while the Locust runner may use
+its own newer dependencies. Only HTTP connects the two processes.
 
 - 6 users, spawned at 1 per second, 60 seconds of load.
 - Each user has its own club and reserves one place in a different future
